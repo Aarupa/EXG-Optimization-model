@@ -107,7 +107,7 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
     if results_dict:
         res_df = pd.DataFrame.from_dict(results_dict, orient='index')
         sorted_results = res_df.sort_values(by='Per Unit Cost')
-        sorted_results.to_excel("optimization_output_results.xlsx")
+        # sorted_results.to_excel("optimization_output_results.xlsx")
         sorted_dict = sorted_results.to_dict(orient="index")
         return sorted_dict
     else:

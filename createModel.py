@@ -61,11 +61,11 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
 
     m.objective += m.variables['Final_snapshot_curtailment'].sum()
 
-    # Step 3: Add demand offset constraint
-    def add_demand_offset_constraint():
-        total_demand = network.loads_t.p_set.sum().sum()
-        constraint_expr = (m.variables["Generator-p"].loc[:, 'Unmet_Demand']).sum() <= (1-DO) * total_demand
-        m.add_constraints(constraint_expr, name="demand_offset_constraint")
+    # Step 3: Add demand offset constraint (commented out as per user request)
+    # def add_demand_offset_constraint():
+    #     total_demand = network.loads_t.p_set.sum().sum()
+    #     constraint_expr = (m.variables["Generator-p"].loc[:, 'Unmet_Demand']).sum() <= (1-DO) * total_demand
+    #     m.add_constraints(constraint_expr, name="demand_offset_constraint")
 
     def add_peak_hour_constraint(peak_target=None, peak_hours=None):
         if peak_target is None or peak_hours is None:
@@ -83,7 +83,7 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         m.add_constraints(constraint_expr, name="peak_hour_demand_constraint")
 
 
-    add_demand_offset_constraint()
+    # add_demand_offset_constraint()  # Commented out as per user request
     add_peak_hour_constraint(peak_target=peak_target, peak_hours=peak_hours)
 
     # Step 4: Add State of Charge (SOC) and DoD constraint for storage

@@ -121,8 +121,6 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
       sell_curtailment = sell_curtailment_percentage * (solar_curtailment + wind_curtailment) * curtailment_selling_price
       total_curtailment_cost = (gross_curtailment_marginal - sell_curtailment).sum(axis=0) * 2
 
-
-
       # Total cost calculation
       total_cost = total_solar_cost + total_wind_cost + total_curtailment_cost + total_ess_cost
       annual_demand_met = gross_energy_allocation.sum() * 2
@@ -135,7 +133,7 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
       Final_cost=OA_cost + per_unit_cost
       objective_for_aggregate_cost = network.objective * 2
 
-      # Create Results DataFrame
+      # Create Results DataFrame (hourly results)
       results_df = pd.DataFrame({
           "Demand": demand,
           "Solar Allocation": solar_allocation if isinstance(solar_allocation, pd.Series) else 0,
@@ -149,7 +147,26 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
           "Total Demand met by allocation": gross_energy_allocation,
           "Demand met": demand_met
       })
-      # logger.debug(f"Results DataFrame:\n{results_df}")
+      # Save hourly results to Excel
+      results_df.to_excel("optimization_hourly_results.xlsx", index=True)
+
+      # Save annual summary to separate Excel file
+      annual_summary = {
+          "Optimal Solar Capacity (MW)": solar_capacity,
+          "Optimal Wind Capacity (MW)": wind_capacity,
+          "Optimal Battery Capacity (MW)": ess_capacity,
+          "Per Unit Cost": per_unit_cost,
+          "Final Cost": Final_cost,
+          "Total Cost": total_cost,
+          "Annual Demand Offset": annual_demand_offset,
+          "Annual Demand Met": annual_demand_met,
+          "Annual Curtailment": excess_percentage,
+          "Annual Generation": annual_generation,
+          "Annual Demand": annual_demand,
+          "OA Cost": OA_cost,
+          "Objective Aggregate Cost": objective_for_aggregate_cost
+      }
+      pd.DataFrame([annual_summary]).to_excel("optimization_annual_summary.xlsx", index=False)
 
       # Print outputs
       # logger.debug(f"\nOptimal Capacities:")
