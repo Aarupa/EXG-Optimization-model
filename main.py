@@ -19,17 +19,15 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
     ess = None
     if consumer_demand_path is not None:
         demand_file = pd.read_excel(consumer_demand_path)
-        demand_file = demand_file.groupby(demand_file.index // 2).mean()
-        demand_file = demand_file.squeeze()
+        # Use direct hourly data, ensure index is datetime
         if not isinstance(demand_file.index, pd.DatetimeIndex):
             demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
-        demand_data = demand_file
+        demand_data = demand_file.squeeze()
     else:
-        demand_file = hourly_demand.groupby(hourly_demand.index // 2).mean()
-        demand_file = demand_file.squeeze()
-        if not isinstance(demand_file.index, pd.DatetimeIndex):
-            demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
-        demand_data = demand_file
+        # Use direct hourly data from hourly_demand
+        if not isinstance(hourly_demand.index, pd.DatetimeIndex):
+            hourly_demand.index = pd.date_range(start='2022-01-01', periods=len(hourly_demand), freq='H')
+        demand_data = hourly_demand.squeeze()
 
     # Use only user input (input_data) for the optimization
     results_dict = {}
@@ -43,8 +41,9 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
         if solar_projects and ess_projects and not wind_projects:
             for solar_project in solar_projects:
                 solar_profile = solar_projects[solar_project]['profile']
-                solar_profile = solar_profile.groupby(solar_profile.index // 2).mean()
-                solar_profile.index = demand_data.index 
+                # Use direct hourly profile, ensure index matches demand_data
+                if not isinstance(solar_profile.index, pd.DatetimeIndex):
+                    solar_profile.index = demand_data.index
                 Solar_captialCost = solar_projects[solar_project]['capital_cost']
                 Solar_marginalCost = solar_projects[solar_project]['marginal_cost']
                 Solar_maxCapacity = solar_projects[solar_project]['max_capacity']
