@@ -55,6 +55,7 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                     Battery_Eff_store = ess_projects[ess_system]['efficiency']
                     Battery_Eff_dispatch = ess_projects[ess_system]['efficiency']
                     DoD = ess_projects[ess_system]['DoD']
+                    Battery_max_energy_capacity = ess_projects[ess_system].get('max_energy_capacity', None)  # Human-readable, for battery energy cap
                     ess_name = ess_system
 
                     network = setup_network(
@@ -68,7 +69,8 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         Battery_Eff_store=Battery_Eff_store,
                         Battery_Eff_dispatch=Battery_Eff_dispatch,
                         ess_name=ess_name,
-                        solar_name=solar_name
+                        solar_name=solar_name,
+                        Battery_max_energy_capacity=Battery_max_energy_capacity  # Human-readable, for battery energy cap
                     )
 
                     m = optimize_network(
@@ -82,12 +84,13 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         Battery_marginalCost=Battery_marginalCost,
                         sell_curtailment_percentage=sell_curtailment_percentage,
                         curtailment_selling_price=curtailment_selling_price,
-                        DO=re_replacement/100 if re_replacement else 0.65,
+                        # DO=re_replacement/100 if re_replacement else 0.65,
                         DoD=DoD,
                         annual_curtailment_limit=annual_curtailment_limit,
                         ess_name=ess_name,
                         peak_target=peak_target,
-                        peak_hours=peak_hours
+                        peak_hours=peak_hours,
+                        Battery_max_energy_capacity=Battery_max_energy_capacity  # Human-readable, for battery energy cap
                     )
 
                     analyze_network_results(

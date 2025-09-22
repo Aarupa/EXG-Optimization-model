@@ -48,11 +48,13 @@ def get_battery_inputs():
         marginal_cost = get_float("  Marginal cost: ")
         efficiency = get_float("  Efficiency (0-1): ")
         DoD = get_float("  Depth of Discharge (0-1): ")
+        max_energy_capacity = get_float("  Max energy capacity (MWh): ")  # Human-readable, for battery energy cap
         batteries.append({
             'capital_cost': capital_cost,
             'marginal_cost': marginal_cost,
             'efficiency': efficiency,
-            'DoD': DoD
+            'DoD': DoD,
+            'max_energy_capacity': max_energy_capacity  # Human-readable, for battery energy cap
         })
     return batteries
 
@@ -63,7 +65,7 @@ def main():
     curtailment_selling_price = get_float("Enter curtailment selling price", default=3000)
     sell_curtailment_percentage = get_float("Enter sell curtailment percentage (0-1)", default=0.5)
     annual_curtailment_limit = get_float("Enter annual curtailment limit (0-1)", default=0.3)
-    re_replacement = get_float("Enter RE replacement percentage (0-100)", default=65)
+    # re_replacement = get_float("Enter RE replacement percentage (0-100)", default=65)
     peak_target = get_float("Enter RE replacement percentage for peak hours (0-100)", default=90) / 100
     peak_hours_input = input("Enter peak hours in 24h format, comma separated (e.g., 6,7,8,18,19,20): ")
     peak_hours = [int(h.strip()) for h in peak_hours_input.split(",") if h.strip().isdigit()]
@@ -103,7 +105,8 @@ def main():
                 'capital_cost': b['capital_cost'],
                 'marginal_cost': b['marginal_cost'],
                 'efficiency': b['efficiency'],
-                'DoD': b['DoD']
+                'DoD': b['DoD'],
+                'max_energy_capacity': b['max_energy_capacity']  # Human-readable, for battery energy cap
             }
 
     # Load demand data
@@ -113,7 +116,7 @@ def main():
         input_data=input_data,
         consumer_demand_path=demand_file,
         hourly_demand=hourly_demand,
-        re_replacement=re_replacement,
+        # re_replacement=re_replacement,
         OA_cost=OA_cost,
         curtailment_selling_price=curtailment_selling_price,
         sell_curtailment_percentage=sell_curtailment_percentage,

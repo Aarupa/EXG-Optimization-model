@@ -7,7 +7,8 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                      Wind_captialCost=None, Battery_captialCost=None, Solar_marginalCost=None,
                      Wind_marginalCost=None, Battery_marginalCost=None, sell_curtailment_percentage=None,
                      curtailment_selling_price=None, DO=None, DoD=None, annual_curtailment_limit=None,
-                     ess_name=None,  peak_target=None, peak_hours=None):
+                     ess_name=None,  peak_target=None, peak_hours=None, Battery_max_energy_capacity=None):
+    # ...existing code...
 
     solar_present = solar_profile is not None and not solar_profile.empty
     wind_present = wind_profile is not None and not wind_profile.empty
@@ -61,12 +62,8 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
 
     m.objective += m.variables['Final_snapshot_curtailment'].sum()
 
-    # Step 3: Add demand offset constraint (commented out as per user request)
-    # def add_demand_offset_constraint():
-    #     total_demand = network.loads_t.p_set.sum().sum()
-    #     constraint_expr = (m.variables["Generator-p"].loc[:, 'Unmet_Demand']).sum() <= (1-DO) * total_demand
-    #     m.add_constraints(constraint_expr, name="demand_offset_constraint")
 
+    # Only enforce demand met during peak hours. Unmet demand is allowed outside peak hours.
     def add_peak_hour_constraint(peak_target=None, peak_hours=None):
         if peak_target is None or peak_hours is None:
             return  # skip if not provided
@@ -78,12 +75,11 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         peak_indices = network.snapshots[peak_mask]
         unmet_peak = m.variables["Generator-p"].loc[peak_indices, 'Unmet_Demand'].sum()
 
-        # Ensure unmet demand <= (1 - peak_target) * demand
+        # Ensure unmet demand <= (1 - peak_target) * demand during peak hours only
         constraint_expr = unmet_peak <= (1 - peak_target) * total_peak_demand
         m.add_constraints(constraint_expr, name="peak_hour_demand_constraint")
 
-
-    # add_demand_offset_constraint()  # Commented out as per user request
+    # Only enforce the peak hour demand constraint. No annual demand offset constraint.
     add_peak_hour_constraint(peak_target=peak_target, peak_hours=peak_hours)
 
     # Step 4: Add State of Charge (SOC) and DoD constraint for storage
@@ -94,6 +90,14 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
             m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
 
         add_SOC_DoD_constraint()
+        # Add battery energy capacity cap constraint (if provided)
+        if Battery_max_energy_capacity is not None:
+            # Human-readable: Battery_max_energy_capacity is in MWh, p_nom is MW, so max_hours = MWh/MW
+            # PyPSA's max_hours is already set in setup_Components, but we can add a constraint for clarity
+            max_energy = Battery_max_energy_capacity
+            # For every snapshot, SOC <= p_nom * max_energy
+            constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[:, 'Battery'] <= m.variables["StorageUnit-p_nom"].loc['Battery'] * max_energy
+            m.add_constraints(constraint_expr, name="battery_energy_capacity_cap_constraint")
 
     if solar_present and  wind_present:
         # Step 7: Final curtailment cost calculation
@@ -178,4 +182,19 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
     # logger.debug("Model optimization completed successfull {m.objective}")
     # logger.debug("Model optimization completed successfull {m.variables}")
 
+    # Add battery charging constraint (after all variables are defined)
+    if ess_name is not None:
+        battery_store = m.variables["StorageUnit-p_store"].loc[:, "Battery"]
+        real_gen = None
+        if solar_present and wind_present:
+            solar_gen = m.variables["Generator-p"].loc[:, "Solar"]
+            wind_gen = m.variables["Generator-p"].loc[:, "Wind"]
+            real_gen = solar_gen + wind_gen
+        elif solar_present:
+            real_gen = m.variables["Generator-p"].loc[:, "Solar"]
+        elif wind_present:
+            real_gen = m.variables["Generator-p"].loc[:, "Wind"]
+        if real_gen is not None:
+            m.add_constraints(battery_store <= real_gen, name="battery_charge_from_real_gen_only")
+            m.add_constraints(battery_store >= 0, name="battery_store_nonnegative")
     return m
