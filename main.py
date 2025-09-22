@@ -87,8 +87,8 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         DoD=DoD,
                         annual_curtailment_limit=annual_curtailment_limit,
                         ess_name=ess_name,
-                        peak_target=peak_target,
-                        peak_hours=peak_hours
+                        # peak_target=peak_target,
+                        # peak_hours=peak_hours
                     )
 
                     analyze_network_results(

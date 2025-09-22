@@ -7,7 +7,7 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                      Wind_captialCost=None, Battery_captialCost=None, Solar_marginalCost=None,
                      Wind_marginalCost=None, Battery_marginalCost=None, sell_curtailment_percentage=None,
                      curtailment_selling_price=None, DO=None, DoD=None, annual_curtailment_limit=None,
-                     ess_name=None,  peak_target=None, peak_hours=None):
+                     ess_name=None): #peak_target=None, peak_hours=None
 
     solar_present = solar_profile is not None and not solar_profile.empty
     wind_present = wind_profile is not None and not wind_profile.empty
@@ -67,24 +67,24 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         constraint_expr = (m.variables["Generator-p"].loc[:, 'Unmet_Demand']).sum() <= (1-DO) * total_demand
         m.add_constraints(constraint_expr, name="demand_offset_constraint")
 
-    def add_peak_hour_constraint(peak_target=None, peak_hours=None):
-        if peak_target is None or peak_hours is None:
-            return  # skip if not provided
+    # def add_peak_hour_constraint(peak_target=None, peak_hours=None):
+    #     if peak_target is None or peak_hours is None:
+    #         return  # skip if not provided
 
-        # Mask for snapshots falling in user-defined peak hours
-        peak_mask = network.snapshots.to_series().dt.hour.isin(peak_hours)
+    #     # Mask for snapshots falling in user-defined peak hours
+    #     peak_mask = network.snapshots.to_series().dt.hour.isin(peak_hours)
 
-        total_peak_demand = network.loads_t.p_set.loc[peak_mask, "ElectricityDemand"].sum()
-        peak_indices = network.snapshots[peak_mask]
-        unmet_peak = m.variables["Generator-p"].loc[peak_indices, 'Unmet_Demand'].sum()
+    #     total_peak_demand = network.loads_t.p_set.loc[peak_mask, "ElectricityDemand"].sum()
+    #     peak_indices = network.snapshots[peak_mask]
+    #     unmet_peak = m.variables["Generator-p"].loc[peak_indices, 'Unmet_Demand'].sum()
 
-        # Ensure unmet demand <= (1 - peak_target) * demand
-        constraint_expr = unmet_peak <= (1 - peak_target) * total_peak_demand
-        m.add_constraints(constraint_expr, name="peak_hour_demand_constraint")
+    #     # Ensure unmet demand <= (1 - peak_target) * demand
+    #     constraint_expr = unmet_peak <= (1 - peak_target) * total_peak_demand
+    #     m.add_constraints(constraint_expr, name="peak_hour_demand_constraint")
 
 
     add_demand_offset_constraint()
-    add_peak_hour_constraint(peak_target=peak_target, peak_hours=peak_hours)
+    # add_peak_hour_constraint(peak_target=peak_target, peak_hours=peak_hours)
 
     # Step 4: Add State of Charge (SOC) and DoD constraint for storage
     if ess_name is not None:

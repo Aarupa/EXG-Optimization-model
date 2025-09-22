@@ -135,21 +135,45 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
       Final_cost=OA_cost + per_unit_cost
       objective_for_aggregate_cost = network.objective * 2
 
-      # Create Results DataFrame
+
+      # Create Results DataFrame (hourly)
       results_df = pd.DataFrame({
-          "Demand": demand,
-          "Solar Allocation": solar_allocation if isinstance(solar_allocation, pd.Series) else 0,
-          "Wind Allocation": wind_allocation if isinstance(wind_allocation, pd.Series) else 0,
-          "SOC": battery_soc,
-          "ESS Discharge": ess_discharge,
-          "ESS Charge": ess_charge,
-          "Unmet demand": virtual_gen,
-          "Generation": gross_energy_generation.squeeze(),
-          "Curtailment": gross_curtailment,
-          "Total Demand met by allocation": gross_energy_allocation,
+          "Hour": demand.index,
+          "Demand": demand.values,
+          "Solar Allocation": solar_allocation.values if isinstance(solar_allocation, pd.Series) else 0,
+          "Wind Allocation": wind_allocation.values if isinstance(wind_allocation, pd.Series) else 0,
+          "SOC": battery_soc.values if hasattr(battery_soc, 'values') else 0,
+          "ESS Discharge": ess_discharge.values if hasattr(ess_discharge, 'values') else 0,
+          "ESS Charge": ess_charge.values if hasattr(ess_charge, 'values') else 0,
+          "Unmet demand": virtual_gen.values if hasattr(virtual_gen, 'values') else 0,
+          "Generation": gross_energy_generation.squeeze() if hasattr(gross_energy_generation, 'squeeze') else gross_energy_generation,
+          "Curtailment": gross_curtailment.values if hasattr(gross_curtailment, 'values') else 0,
+          "Total Demand met by allocation": gross_energy_allocation.values if hasattr(gross_energy_allocation, 'values') else 0,
           "Demand met": demand_met
       })
-      # logger.debug(f"Results DataFrame:\n{results_df}")
+
+      # Export hourly results to Excel
+      try:
+          results_df.to_excel("hourly_output.xlsx", index=False)
+      except Exception as e:
+          logger.debug(f"Failed to write hourly_output.xlsx: {e}")
+
+      # Prepare annual summary DataFrame (single row)
+      annual_summary = pd.DataFrame({
+          "Total Demand": [annual_demand],
+          "Total Generation": [annual_generation],
+          "Total Cost": [total_cost],
+          "Per Unit Cost": [per_unit_cost],
+          "Final Cost": [Final_cost],
+          "Annual Demand Offset (%)": [annual_demand_offset],
+          "Annual Demand Met": [annual_demand_met],
+          "Annual Curtailment (%)": [excess_percentage],
+          "Objective Cost": [objective_for_aggregate_cost]
+      })
+      try:
+          annual_summary.to_excel("annual_output.xlsx", index=False)
+      except Exception as e:
+          logger.debug(f"Failed to write annual_output.xlsx: {e}")
 
       # Print outputs
       # logger.debug(f"\nOptimal Capacities:")
