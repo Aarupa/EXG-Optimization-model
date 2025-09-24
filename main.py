@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger('debug_logger')  # Use the new debug logger
 
 
-def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None, re_replacement=None, valid_combinations=None, OA_cost=None, curtailment_selling_price=None, sell_curtailment_percentage=None, annual_curtailment_limit=None, peak_target=None, peak_hours=None):
+def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None, re_replacement=None, valid_combinations=None, OA_cost=None, curtailment_selling_price=None, sell_curtailment_percentage=None, annual_curtailment_limit=None, peak_target=None, peak_hours=None, Transmission_Connectivity=None):
     
 
     ipp_name = None
@@ -90,7 +90,9 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         ess_name=ess_name,
                         peak_target=peak_target,
                         peak_hours=peak_hours,
-                        Battery_max_energy_capacity=Battery_max_energy_capacity  # Human-readable, for battery energy cap
+                        Battery_max_energy_capacity=Battery_max_energy_capacity,
+                        Transmission_Connectivity=Transmission_Connectivity,
+                        # PPA_Capacity=PPA_Capacity
                     )
 
                     analyze_network_results(

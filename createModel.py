@@ -7,8 +7,8 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                      Wind_captialCost=None, Battery_captialCost=None, Solar_marginalCost=None,
                      Wind_marginalCost=None, Battery_marginalCost=None, sell_curtailment_percentage=None,
                      curtailment_selling_price=None, DO=None, DoD=None, annual_curtailment_limit=None,
-                     ess_name=None,  peak_target=None, peak_hours=None, Battery_max_energy_capacity=None):
-    # ...existing code...
+                     ess_name=None,  peak_target=None, peak_hours=None, Battery_max_energy_capacity=None,
+                     Transmission_Connectivity=None):  # Removed PPA_Capacity
 
     solar_present = solar_profile is not None and not solar_profile.empty
     wind_present = wind_profile is not None and not wind_profile.empty
@@ -241,6 +241,9 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                 # Remove hardcoded connectivity limit, use Solar_maxCapacity
                 m.add_constraints(solar_gen <= Solar_maxCapacity, name="connectivity_limit")
 
+                # --- NEW: Transmission connectivity and PPA capacity constraints ---
+                if Transmission_Connectivity is not None:
+                    m.add_constraints(solar_gen <= Transmission_Connectivity, name="transmission_connectivity_limit")
                 # 6. Curtailment calculation (any generation beyond PPA/Connectivity)
                 # Curtailment = max(0, solar_gen - Solar_maxCapacity)
                 curtailment = solar_gen - Solar_maxCapacity

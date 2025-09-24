@@ -71,6 +71,9 @@ def main():
     peak_hours = [int(h.strip()) for h in peak_hours_input.split(",") if h.strip().isdigit()]
 
 
+    Transmission_Connectivity = get_float("Enter Transmission Connectivity (MW)", default=300)
+    # PPA_Capacity = get_float("Enter PPA Capacity (MW)", default=250)
+
     # Get user profiles
     solar_profiles = get_profile_inputs("solar")
     wind_profiles = get_profile_inputs("wind")
@@ -122,7 +125,9 @@ def main():
         sell_curtailment_percentage=sell_curtailment_percentage,
         annual_curtailment_limit=annual_curtailment_limit,
         peak_target=peak_target,
-        peak_hours=peak_hours
+        peak_hours=peak_hours,
+        Transmission_Connectivity=Transmission_Connectivity,
+        # PPA_Capacity=PPA_Capacity
     )
     print("\n=== Optimization Result ===")
     print(result)
