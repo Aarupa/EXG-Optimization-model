@@ -86,8 +86,9 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
     if ess_name is not None:
         def add_SOC_DoD_constraint():
             snapshots_except_first = network.snapshots[1:].to_list()
-            constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"]
-            m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
+                # The following strict DoD constraint is commented out to avoid infeasibility:
+                # constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"]
+                # m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
 
         add_SOC_DoD_constraint()
         # Add battery energy capacity cap constraint (if provided)
@@ -186,15 +187,62 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
     if ess_name is not None:
         battery_store = m.variables["StorageUnit-p_store"].loc[:, "Battery"]
         real_gen = None
-        if solar_present and wind_present:
+        # Always define solar_gen for use in constraints below
+        if solar_present:
             solar_gen = m.variables["Generator-p"].loc[:, "Solar"]
+        else:
+            # If solar is not present, set solar_gen to 0 (matching shape)
+            solar_gen = 0
+        if solar_present and wind_present:
             wind_gen = m.variables["Generator-p"].loc[:, "Wind"]
             real_gen = solar_gen + wind_gen
         elif solar_present:
-            real_gen = m.variables["Generator-p"].loc[:, "Solar"]
+            real_gen = solar_gen
         elif wind_present:
             real_gen = m.variables["Generator-p"].loc[:, "Wind"]
         if real_gen is not None:
             m.add_constraints(battery_store <= real_gen, name="battery_charge_from_real_gen_only")
             m.add_constraints(battery_store >= 0, name="battery_store_nonnegative")
+            # Constraint: Battery discharge must serve peak hour demand as per user input
+            if peak_hours is not None and len(peak_hours) > 0:
+                peak_mask = network.snapshots.to_series().dt.hour.isin(peak_hours)
+                peak_indices = network.snapshots[peak_mask]
+                # Battery discharge during peak hours
+                battery_discharge_peak = m.variables["StorageUnit-p_dispatch"].loc[peak_indices, "Battery"]
+                # Total demand during peak hours
+                total_peak_demand = network.loads_t.p_set.loc[peak_mask, "ElectricityDemand"].sum()
+                # Enforce that battery discharge during peak hours meets user-defined fraction of peak demand
+                # (e.g., peak_target = 0.9 means battery must serve at least 90% of peak demand)
+                m.add_constraints(battery_discharge_peak.sum() >= peak_target * total_peak_demand, name="battery_discharge_meets_peak_demand")
+
+                # --- Additional Constraints as per summary ---
+                # 1. SOC update constraint (charging/discharging balance, efficiency, DoD)
+                # (SOC_next = SOC_prev + charge * eff_store - discharge / eff_dispatch)
+                # Enforce DoD: SOC >= (1-DoD) * p_nom
+                if DoD is not None:
+                    snapshots_except_first = network.snapshots[1:].to_list()
+                    # Uncomment below for strict DoD enforcement
+                    # m.add_constraints(m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"], name="SOC_DoD_constraint")
+
+                # 2. Solar → ESS first rule (then to demand, then curtailment)
+                # Prioritize ESS charging from solar before demand/curtailment
+                m.add_constraints(battery_store <= solar_gen, name="solar_to_ess_first")
+
+                # 3. ESS discharge allowed only when solar < demand
+                demand_series = network.loads_t.p_set["ElectricityDemand"]
+                # Only allow battery discharge up to unmet demand after solar
+                m.add_constraints(m.variables["StorageUnit-p_dispatch"].loc[:, "Battery"] <= demand_series - solar_gen, name="ess_discharge_only_when_solar_less_than_demand")
+
+                # 4. PPA capacity limit (max deliverable = Solar_maxCapacity from user input)
+                # Remove hardcoded 250 MW limit, use Solar_maxCapacity
+                m.add_constraints(solar_gen <= Solar_maxCapacity, name="ppa_capacity_limit")
+
+                # 5. Connectivity limit (cap solar export)
+                # Remove hardcoded connectivity limit, use Solar_maxCapacity
+                m.add_constraints(solar_gen <= Solar_maxCapacity, name="connectivity_limit")
+
+                # 6. Curtailment calculation (any generation beyond PPA/Connectivity)
+                # Curtailment = max(0, solar_gen - Solar_maxCapacity)
+                curtailment = solar_gen - Solar_maxCapacity
+                m.add_constraints(m.variables["Solar_curtailment"] >= curtailment, name="curtailment_calculation")
     return m

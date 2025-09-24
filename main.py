@@ -21,12 +21,12 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
         demand_file = pd.read_excel(consumer_demand_path)
         # Use direct hourly data, ensure index is datetime
         if not isinstance(demand_file.index, pd.DatetimeIndex):
-            demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
+            demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='h')
         demand_data = demand_file.squeeze()
     else:
         # Use direct hourly data from hourly_demand
         if not isinstance(hourly_demand.index, pd.DatetimeIndex):
-            hourly_demand.index = pd.date_range(start='2022-01-01', periods=len(hourly_demand), freq='H')
+            hourly_demand.index = pd.date_range(start='2022-01-01', periods=len(hourly_demand), freq='h')
         demand_data = hourly_demand.squeeze()
 
     # Use only user input (input_data) for the optimization
