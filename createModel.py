@@ -8,7 +8,6 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                      Wind_marginalCost=None, Battery_marginalCost=None, sell_curtailment_percentage=None,
                      curtailment_selling_price=None, DO=None, DoD=None, annual_curtailment_limit=None,
                      ess_name=None,  peak_target=None, peak_hours=None, Battery_max_energy_capacity=None):
-    # ...existing code...
 
     solar_present = solar_profile is not None and not solar_profile.empty
     wind_present = wind_profile is not None and not wind_profile.empty
@@ -90,7 +89,7 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
             m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
 
         add_SOC_DoD_constraint()
-        # Add battery energy capacity cap constraint (if provided)
+       
         if Battery_max_energy_capacity is not None:
             # Human-readable: Battery_max_energy_capacity is in MWh, p_nom is MW, so max_hours = MWh/MW
             # PyPSA's max_hours is already set in setup_Components, but we can add a constraint for clarity
