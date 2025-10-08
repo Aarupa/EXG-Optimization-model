@@ -18,6 +18,9 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
   try:
       # Solve the optimization model
       lopf_status = network.optimize.solve_model()
+      print("Solver used:", lopf_status[0])
+      print("Solution status:", lopf_status[1])
+
       if lopf_status[1] == "infeasible":
           raise ValueError("Optimization returned 'infeasible' status.")
 

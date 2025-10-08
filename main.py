@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger('debug_logger')  # Use the new debug logger
 
 
-def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None, re_replacement=None, valid_combinations=None, OA_cost=None, curtailment_selling_price=None, sell_curtailment_percentage=None, annual_curtailment_limit=None, peak_target=None, peak_hours=None):
+def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None, re_replacement=None, OA_cost=None, curtailment_selling_price=None, sell_curtailment_percentage=None, annual_curtailment_limit=None, peak_target=None, peak_hours=None):
     
 
     ipp_name = None
@@ -21,30 +21,31 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
         demand_file = pd.read_excel(consumer_demand_path)
         demand_file = demand_file.groupby(demand_file.index // 2).mean()
         demand_file = demand_file.squeeze()
-        if not isinstance(demand_file.index, pd.DatetimeIndex):
-            demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
+        # if not isinstance(demand_file.index, pd.DatetimeIndex):
+        #     demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
         demand_data = demand_file
     else:
         demand_file = hourly_demand.groupby(hourly_demand.index // 2).mean()
         demand_file = demand_file.squeeze()
-        if not isinstance(demand_file.index, pd.DatetimeIndex):
-            demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
+        # if not isinstance(demand_file.index, pd.DatetimeIndex):
+        #     demand_file.index = pd.date_range(start='2022-01-01', periods=len(demand_file), freq='H')
         demand_data = demand_file
 
     # Use only user input (input_data) for the optimization
     results_dict = {}
     final_dict = input_data
+    # Iterate through all IPPs and handle all possible conditions
     for ipp in final_dict:
         solar_projects = final_dict[ipp].get('Solar', {})
         wind_projects = final_dict[ipp].get('Wind', {})
         ess_projects = final_dict[ipp].get('ESS', {})
 
-        # Solar + Battery only (no wind)
+        # Solar + ESS (no wind) - Already implemented
         if solar_projects and ess_projects and not wind_projects:
             for solar_project in solar_projects:
                 solar_profile = solar_projects[solar_project]['profile']
                 solar_profile = solar_profile.groupby(solar_profile.index // 2).mean()
-                solar_profile.index = demand_data.index 
+                solar_profile.index = demand_data.index
                 Solar_captialCost = solar_projects[solar_project]['capital_cost']
                 Solar_marginalCost = solar_projects[solar_project]['marginal_cost']
                 Solar_maxCapacity = solar_projects[solar_project]['max_capacity']
@@ -103,6 +104,220 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         ipp_name=ipp
                     )
 
+        # Solar + Wind + ESS
+        if solar_projects and wind_projects and ess_projects:
+            for solar_project in solar_projects:
+                solar_profile = solar_projects[solar_project]['profile']
+                solar_profile = solar_profile.groupby(solar_profile.index // 2).mean()
+                solar_profile.index = demand_data.index
+                Solar_captialCost = solar_projects[solar_project]['capital_cost']
+                Solar_marginalCost = solar_projects[solar_project]['marginal_cost']
+                Solar_maxCapacity = solar_projects[solar_project]['max_capacity']
+                solar_name = solar_project
+
+                for wind_project in wind_projects:
+                    wind_profile = wind_projects[wind_project]['profile']
+                    wind_profile = wind_profile.groupby(wind_profile.index // 2).mean()
+                    wind_profile.index = demand_data.index
+                    Wind_captialCost = wind_projects[wind_project]['capital_cost']
+                    Wind_marginalCost = wind_projects[wind_project]['marginal_cost']
+                    Wind_maxCapacity = wind_projects[wind_project]['max_capacity']
+                    wind_name = wind_project
+
+                    for ess_system in ess_projects:
+                        Battery_captialCost = ess_projects[ess_system]['capital_cost']
+                        Battery_marginalCost = ess_projects[ess_system]['marginal_cost']
+                        Battery_Eff_store = ess_projects[ess_system]['efficiency']
+                        Battery_Eff_dispatch = ess_projects[ess_system]['efficiency']
+                        DoD = ess_projects[ess_system]['DoD']
+                        ess_name = ess_system
+
+                        network = setup_network(
+                            demand_data=demand_data,
+                            solar_profile=solar_profile,
+                            wind_profile=wind_profile,
+                            Solar_maxCapacity=Solar_maxCapacity,
+                            Solar_captialCost=Solar_captialCost,
+                            Solar_marginalCost=Solar_marginalCost,
+                            Wind_maxCapacity=Wind_maxCapacity,
+                            Wind_captialCost=Wind_captialCost,
+                            Wind_marginalCost=Wind_marginalCost,
+                            Battery_captialCost=Battery_captialCost,
+                            Battery_marginalCost=Battery_marginalCost,
+                            Battery_Eff_store=Battery_Eff_store,
+                            Battery_Eff_dispatch=Battery_Eff_dispatch,
+                            ess_name=ess_name,
+                            solar_name=solar_name,
+                            wind_name=wind_name
+                        )
+
+                        m = optimize_network(
+                            network=network,
+                            solar_profile=solar_profile,
+                            wind_profile=wind_profile,
+                            demand_data=demand_data,
+                            Solar_maxCapacity=Solar_maxCapacity,
+                            Solar_captialCost=Solar_captialCost,
+                            Wind_maxCapacity=Wind_maxCapacity,
+                            Wind_captialCost=Wind_captialCost,
+                            Battery_captialCost=Battery_captialCost,
+                            Solar_marginalCost=Solar_marginalCost,
+                            Wind_marginalCost=Wind_marginalCost,
+                            Battery_marginalCost=Battery_marginalCost,
+                            sell_curtailment_percentage=sell_curtailment_percentage,
+                            curtailment_selling_price=curtailment_selling_price,
+                            DO=re_replacement/100 if re_replacement else 0.65,
+                            DoD=DoD,
+                            annual_curtailment_limit=annual_curtailment_limit,
+                            ess_name=ess_name,
+                            # peak_target=peak_target,
+                            # peak_hours=peak_hours
+                        )
+
+                        analyze_network_results(
+                            network=network,
+                            sell_curtailment_percentage=sell_curtailment_percentage,
+                            curtailment_selling_price=curtailment_selling_price,
+                            solar_profile=solar_profile,
+                            wind_profile=wind_profile,
+                            results_dict=results_dict,
+                            OA_cost=OA_cost,
+                            ess_name=ess_name,
+                            solar_name=solar_name,
+                            wind_name=wind_name,
+                            ipp_name=ipp
+                        )
+
+        # Solar + Wind (no ESS)
+        if solar_projects and wind_projects and not ess_projects:
+            for solar_project in solar_projects:
+                solar_profile = solar_projects[solar_project]['profile']
+                solar_profile = solar_profile.groupby(solar_profile.index // 2).mean()
+                solar_profile.index = demand_data.index
+                Solar_captialCost = solar_projects[solar_project]['capital_cost']
+                Solar_marginalCost = solar_projects[solar_project]['marginal_cost']
+                Solar_maxCapacity = solar_projects[solar_project]['max_capacity']
+                solar_name = solar_project
+
+                for wind_project in wind_projects:
+                    wind_profile = wind_projects[wind_project]['profile']
+                    wind_profile = wind_profile.groupby(wind_profile.index // 2).mean()
+                    wind_profile.index = demand_data.index
+                    Wind_captialCost = wind_projects[wind_project]['capital_cost']
+                    Wind_marginalCost = wind_projects[wind_project]['marginal_cost']
+                    Wind_maxCapacity = wind_projects[wind_project]['max_capacity']
+                    wind_name = wind_project
+
+                    network = setup_network(
+                        demand_data=demand_data,
+                        solar_profile=solar_profile,
+                        wind_profile=wind_profile,
+                        Solar_maxCapacity=Solar_maxCapacity,
+                        Solar_captialCost=Solar_captialCost,
+                        Solar_marginalCost=Solar_marginalCost,
+                        Wind_maxCapacity=Wind_maxCapacity,
+                        Wind_captialCost=Wind_captialCost,
+                        Wind_marginalCost=Wind_marginalCost,
+                        solar_name=solar_name,
+                        wind_name=wind_name
+                    )
+
+                    m = optimize_network(
+                        network=network,
+                        solar_profile=solar_profile,
+                        wind_profile=wind_profile,
+                        demand_data=demand_data,
+                        Solar_maxCapacity=Solar_maxCapacity,
+                        Solar_captialCost=Solar_captialCost,
+                        Wind_maxCapacity=Wind_maxCapacity,
+                        Wind_captialCost=Wind_captialCost,
+                        Solar_marginalCost=Solar_marginalCost,
+                        Wind_marginalCost=Wind_marginalCost,
+                        sell_curtailment_percentage=sell_curtailment_percentage,
+                        curtailment_selling_price=curtailment_selling_price,
+                        DO=re_replacement/100 if re_replacement else 0.65,
+                        annual_curtailment_limit=annual_curtailment_limit,
+                        # peak_target=peak_target,
+                        # peak_hours=peak_hours
+                    )
+
+                    analyze_network_results(
+                        network=network,
+                        sell_curtailment_percentage=sell_curtailment_percentage,
+                        curtailment_selling_price=curtailment_selling_price,
+                        solar_profile=solar_profile,
+                        wind_profile=wind_profile,
+                        results_dict=results_dict,
+                        OA_cost=OA_cost,
+                        solar_name=solar_name,
+                        wind_name=wind_name,
+                        ipp_name=ipp
+                    )
+
+        # Wind + ESS (no Solar)
+        if wind_projects and ess_projects and not solar_projects:
+            for wind_project in wind_projects:
+                wind_profile = wind_projects[wind_project]['profile']
+                wind_profile = wind_profile.groupby(wind_profile.index // 2).mean()
+                wind_profile.index = demand_data.index
+                Wind_captialCost = wind_projects[wind_project]['capital_cost']
+                Wind_marginalCost = wind_projects[wind_project]['marginal_cost']
+                Wind_maxCapacity = wind_projects[wind_project]['max_capacity']
+                wind_name = wind_project
+
+                for ess_system in ess_projects:
+                    Battery_captialCost = ess_projects[ess_system]['capital_cost']
+                    Battery_marginalCost = ess_projects[ess_system]['marginal_cost']
+                    Battery_Eff_store = ess_projects[ess_system]['efficiency']
+                    Battery_Eff_dispatch = ess_projects[ess_system]['efficiency']
+                    DoD = ess_projects[ess_system]['DoD']
+                    ess_name = ess_system
+
+                    network = setup_network(
+                        demand_data=demand_data,
+                        wind_profile=wind_profile,
+                        Wind_maxCapacity=Wind_maxCapacity,
+                        Wind_captialCost=Wind_captialCost,
+                        Wind_marginalCost=Wind_marginalCost,
+                        Battery_captialCost=Battery_captialCost,
+                        Battery_marginalCost=Battery_marginalCost,
+                        Battery_Eff_store=Battery_Eff_store,
+                        Battery_Eff_dispatch=Battery_Eff_dispatch,
+                        ess_name=ess_name,
+                        wind_name=wind_name
+                    )
+
+                    m = optimize_network(
+                        network=network,
+                        wind_profile=wind_profile,
+                        demand_data=demand_data,
+                        Wind_maxCapacity=Wind_maxCapacity,
+                        Wind_captialCost=Wind_captialCost,
+                        Battery_captialCost=Battery_captialCost,
+                        Wind_marginalCost=Wind_marginalCost,
+                        Battery_marginalCost=Battery_marginalCost,
+                        sell_curtailment_percentage=sell_curtailment_percentage,
+                        curtailment_selling_price=curtailment_selling_price,
+                        DO=re_replacement/100 if re_replacement else 0.65,
+                        DoD=DoD,
+                        annual_curtailment_limit=annual_curtailment_limit,
+                        ess_name=ess_name,
+                        # peak_target=peak_target,
+                        # peak_hours=peak_hours
+                    )
+
+                    analyze_network_results(
+                        network=network,
+                        sell_curtailment_percentage=sell_curtailment_percentage,
+                        curtailment_selling_price=curtailment_selling_price,
+                        wind_profile=wind_profile,
+                        results_dict=results_dict,
+                        OA_cost=OA_cost,
+                        ess_name=ess_name,
+                        wind_name=wind_name,
+                        ipp_name=ipp
+                    )
+
     # Convert results_dict to DataFrame for easy sorting
     if results_dict:
         res_df = pd.DataFrame.from_dict(results_dict, orient='index')
@@ -117,4 +332,3 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                 "wind": wind,
                 "ess": ess}
 
-# response_data = optimization_model(input_data, hourly_demand=numeric_hourly_demand, re_replacement=re_replacement, valid_combinations=valid_combinations, OA_cost=OA_cost)
