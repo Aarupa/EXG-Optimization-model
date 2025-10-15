@@ -59,10 +59,12 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         name="Final_snapshot_curtailment"
     )
 
+    # Update the objective function to include only variable terms
     m.objective += m.variables['Final_snapshot_curtailment'].sum()
 
 
     # Only enforce demand met during peak hours. Unmet demand is allowed outside peak hours.
+    # Modify the peak hour constraint to introduce a penalty for unmet demand
     def add_peak_hour_constraint(peak_target=None, peak_hours=None):
         if peak_target is None or peak_hours is None:
             return  # skip if not provided
@@ -73,6 +75,10 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         total_peak_demand = network.loads_t.p_set.loc[peak_mask, "ElectricityDemand"].sum()
         peak_indices = network.snapshots[peak_mask]
         unmet_peak = m.variables["Generator-p"].loc[peak_indices, 'Unmet_Demand'].sum()
+
+        # Introduce a penalty for unmet demand during peak hours
+        penalty_expr = unmet_peak * 1000  # Penalty factor (adjust as needed)
+        m.objective += penalty_expr
 
         # Ensure unmet demand <= (1 - peak_target) * demand during peak hours only
         constraint_expr = unmet_peak <= (1 - peak_target) * total_peak_demand
