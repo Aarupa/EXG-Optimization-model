@@ -78,6 +78,8 @@ def setup_network(demand_data=None, solar_profile=None, wind_profile=None, Solar
                         # DoD=0.2,           # Minimum state of charge (1 - DoD), for DoD = 0.8
             )
 
+            #e_nom extendable true  
+
     # Add generator for unmet demand
     network.add("Generator", "Unmet_Demand",
                 bus="ElectricityBus",

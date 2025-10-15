@@ -83,12 +83,12 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
 
     # Step 4: Add State of Charge (SOC) and DoD constraint for storage
     if ess_name is not None:
-        def add_SOC_DoD_constraint():
-            snapshots_except_first = network.snapshots[1:].to_list()
-            constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"]
-            m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
+    #     def add_SOC_DoD_constraint():
+            # snapshots_except_first = network.snapshots[1:].to_list()
+            # constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"]
+            # m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
 
-        add_SOC_DoD_constraint()
+        # add_SOC_DoD_constraint()
        
         if Battery_max_energy_capacity is not None:
             # Human-readable: Battery_max_energy_capacity is in MWh, p_nom is MW, so max_hours = MWh/MW

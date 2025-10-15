@@ -2,6 +2,8 @@ import traceback
 import numpy as np
 import pandas as pd
 import logging
+import time
+from pathlib import Path
 
 # Get the logger that is configured in the settings
 traceback_logger = logging.getLogger('django')
@@ -41,7 +43,8 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
 
           # Solar costs
           solar_capital_cost = solar_capacity * network.generators.at["Solar", "capital_cost"]
-          solar_marginal_cost = (solar_allocation * network.generators.at["Solar", "marginal_cost"]).sum(axis=0) * 2
+          # solar_marginal_cost = (solar_allocation * network.generators.at["Solar", "marginal_cost"]).sum(axis=0) * 2
+          solar_marginal_cost = (solar_allocation * network.generators.at["Solar", "marginal_cost"]).sum(axis=0) 
           total_solar_cost = solar_capital_cost + solar_marginal_cost
       else:
           solar_capacity = 0
@@ -60,7 +63,8 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
 
           # Wind costs
           wind_capital_cost = wind_capacity * network.generators.at["Wind", "capital_cost"]
-          wind_marginal_cost = (wind_allocation * network.generators.at["Wind", "marginal_cost"]).sum(axis=0) * 2
+          # wind_marginal_cost = (wind_allocation * network.generators.at["Wind", "marginal_cost"]).sum(axis=0) * 2
+          wind_marginal_cost = (wind_allocation * network.generators.at["Wind", "marginal_cost"]).sum(axis=0)
           total_wind_cost = wind_capital_cost + wind_marginal_cost
       else:
           wind_capacity = 0
@@ -77,8 +81,11 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
           gross_energy_allocation += (ess_discharge - ess_charge)
           ess_capacity = network.storage_units.at["Battery", "p_nom_opt"]
           ess_capital_cost = ess_capacity * network.storage_units.at["Battery", "capital_cost"]
-          ess_marginal_cost = ((((network.storage_units_t.p_dispatch["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)) + ((network.storage_units_t.p_store["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)))) * 2
+          # ess_marginal_cost = ((((network.storage_units_t.p_dispatch["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)) + ((network.storage_units_t.p_store["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)))) * 2
+          ess_marginal_cost = ((((network.storage_units_t.p_dispatch["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)) + ((network.storage_units_t.p_store["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)))) 
           total_ess_cost = ess_capital_cost + ess_marginal_cost
+
+          # Max hours 
       else:
           ess_capacity = 0
           battery_soc = 0
@@ -96,7 +103,8 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
       gross_curtailment = gross_energy_generation - solar_wind_allocation
       gross_curtailment[gross_curtailment < 0] = 0
       # gross_curtailment[abs(ess_discharge) < 1e-5] = 0
-      annual_curtailment = gross_curtailment.sum() * 2
+      # annual_curtailment = gross_curtailment.sum() * 2
+      annual_curtailment = gross_curtailment.sum() 
       gross_curtailment_marginal=0
 
       # Curtailment costs
@@ -119,19 +127,41 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
           wind_curtailment = 0
 
       sell_curtailment = sell_curtailment_percentage * (solar_curtailment + wind_curtailment) * curtailment_selling_price
-      total_curtailment_cost = (gross_curtailment_marginal - sell_curtailment).sum(axis=0) * 2
+      # total_curtailment_cost = (gross_curtailment_marginal - sell_curtailment).sum(axis=0) * 2
+      total_curtailment_cost = (gross_curtailment_marginal - sell_curtailment).sum(axis=0) 
 
       # Total cost calculation
       total_cost = total_solar_cost + total_wind_cost + total_curtailment_cost + total_ess_cost
-      annual_demand_met = gross_energy_allocation.sum() * 2
+      # annual_demand_met = gross_energy_allocation.sum() * 2
+      annual_demand_met = gross_energy_allocation.sum()
       per_unit_cost = total_cost / annual_demand_met if annual_demand_met > 0 else float('inf')
       annual_demand_offset = 100 -  (virtual_gen.sum() / network.loads_t.p_set.sum().sum()) * 100
-      annual_generation = gross_energy_generation.sum() * 2
+      # annual_generation = gross_energy_generation.sum() * 2
+      annual_generation = gross_energy_generation.sum()
       excess_percentage = (annual_curtailment / annual_generation) * 100
-      annual_demand = demand.sum() * 2
+      # annual_demand = demand.sum() * 2
+      annual_demand = demand.sum() 
       OA_cost=OA_cost
       Final_cost=OA_cost + per_unit_cost
-      objective_for_aggregate_cost = network.objective * 2
+      # objective_for_aggregate_cost = network.objective * 2
+      objective_for_aggregate_cost = network.objective 
+
+      # Define the annual summary dictionary with units
+      annual_summary = {
+          "Optimal Solar Capacity (MW)": solar_capacity,
+          "Optimal Wind Capacity (MW)": wind_capacity,
+          "Optimal Battery Capacity (MW)": ess_capacity,
+          "Per Unit Cost (INR/MWh)": per_unit_cost,
+          "Final Cost (INR)": Final_cost,
+          "Total Cost (INR)": total_cost,
+          "Annual Demand Offset (%)": annual_demand_offset,
+          "Annual Demand Met (MWh)": annual_demand_met,
+          "Annual Curtailment (%)": excess_percentage,
+          "Annual Generation (MWh)": annual_generation,
+          "Annual Demand (MWh)": annual_demand,
+          "OA Cost (INR)": OA_cost,
+          "Objective Aggregate Cost (INR)": objective_for_aggregate_cost
+      }
 
       # Create Results DataFrame (hourly results)
       results_df = pd.DataFrame({
@@ -150,23 +180,18 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
       # Save hourly results to Excel
       results_df.to_excel("optimization_hourly_results.xlsx", index=True)
 
-      # Save annual summary to separate Excel file
-      annual_summary = {
-          "Optimal Solar Capacity (MW)": solar_capacity,
-          "Optimal Wind Capacity (MW)": wind_capacity,
-          "Optimal Battery Capacity (MW)": ess_capacity,
-          "Per Unit Cost": per_unit_cost,
-          "Final Cost": Final_cost,
-          "Total Cost": total_cost,
-          "Annual Demand Offset": annual_demand_offset,
-          "Annual Demand Met": annual_demand_met,
-          "Annual Curtailment": excess_percentage,
-          "Annual Generation": annual_generation,
-          "Annual Demand": annual_demand,
-          "OA Cost": OA_cost,
-          "Objective Aggregate Cost": objective_for_aggregate_cost
-      }
-      pd.DataFrame([annual_summary]).to_excel("optimization_annual_summary.xlsx", index=False)
+      # Save annual summary to separate Excel file with error handling
+      annual_summary_path = Path("optimization_annual_summary.xlsx")
+      for attempt in range(3):  # Retry up to 3 times
+          try:
+              pd.DataFrame([annual_summary]).to_excel(annual_summary_path, index=False)
+              break  # Exit loop if successful
+          except PermissionError as e:
+              logger.error(f"Attempt {attempt + 1}: Unable to write to {annual_summary_path}. Ensure the file is not open.")
+              if attempt < 2:  # Retry for the first two attempts
+                  time.sleep(2)  # Wait for 2 seconds before retrying
+              else:
+                  raise e  # Raise the error after 3 failed attempts
 
       # Print outputs
       # logger.debug(f"\nOptimal Capacities:")
