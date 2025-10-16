@@ -8,7 +8,6 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                      Wind_marginalCost=None, Battery_marginalCost=None, sell_curtailment_percentage=None,
                      curtailment_selling_price=None, DO=None, DoD=None, annual_curtailment_limit=None,
                      ess_name=None,  peak_target=None, peak_hours=None, Battery_max_energy_capacity=None):
-    # ...existing code...
 
     solar_present = solar_profile is not None and not solar_profile.empty
     wind_present = wind_profile is not None and not wind_profile.empty
@@ -60,10 +59,15 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         name="Final_snapshot_curtailment"
     )
 
+    # Update the objective function to include only variable terms
     m.objective += m.variables['Final_snapshot_curtailment'].sum()
 
 
-    # Only enforce demand met during peak hours. Unmet demand is allowed outside peak hours.
+    def add_demand_offset_constraint():
+        total_demand = network.loads_t.p_set.sum().sum()
+        constraint_expr = (m.variables["Generator-p"].loc[:, 'Unmet_Demand']).sum() <= (1-DO) * total_demand
+        m.add_constraints(constraint_expr, name="demand_offset_constraint")
+    
     def add_peak_hour_constraint(peak_target=None, peak_hours=None):
         if peak_target is None or peak_hours is None:
             return  # skip if not provided
@@ -75,11 +79,15 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
         peak_indices = network.snapshots[peak_mask]
         unmet_peak = m.variables["Generator-p"].loc[peak_indices, 'Unmet_Demand'].sum()
 
+        # Introduce a penalty for unmet demand during peak hours
+        penalty_expr = unmet_peak * 1000  # Penalty factor (adjust as needed)
+        m.objective += penalty_expr
+
         # Ensure unmet demand <= (1 - peak_target) * demand during peak hours only
         constraint_expr = unmet_peak <= (1 - peak_target) * total_peak_demand
         m.add_constraints(constraint_expr, name="peak_hour_demand_constraint")
 
-    # Only enforce the peak hour demand constraint. No annual demand offset constraint.
+    add_demand_offset_constraint()
     add_peak_hour_constraint(peak_target=peak_target, peak_hours=peak_hours)
 
     # Step 4: Add State of Charge (SOC) and DoD constraint for storage
@@ -90,8 +98,8 @@ def optimize_network(network=None, solar_profile=None, wind_profile=None, demand
                 # constraint_expr = m.variables["StorageUnit-state_of_charge"].loc[snapshots_except_first, 'Battery'] >= (1-DoD) * m.variables["StorageUnit-p_nom"]
                 # m.add_constraints(constraint_expr, name="SOC_DoD_constraint")
 
-        add_SOC_DoD_constraint()
-        # Add battery energy capacity cap constraint (if provided)
+        # add_SOC_DoD_constraint()
+       
         if Battery_max_energy_capacity is not None:
             # Human-readable: Battery_max_energy_capacity is in MWh, p_nom is MW, so max_hours = MWh/MW
             # PyPSA's max_hours is already set in setup_Components, but we can add a constraint for clarity

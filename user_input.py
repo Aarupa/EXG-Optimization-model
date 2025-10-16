@@ -65,10 +65,10 @@ def main():
     curtailment_selling_price = get_float("Enter curtailment selling price", default=3000)
     sell_curtailment_percentage = get_float("Enter sell curtailment percentage (0-1)", default=0.5)
     annual_curtailment_limit = get_float("Enter annual curtailment limit (0-1)", default=0.3)
-    # re_replacement = get_float("Enter RE replacement percentage (0-100)", default=65)
-    peak_target = get_float("Enter RE replacement percentage for peak hours (0-100)", default=90) / 100
+    re_replacement = get_float("Enter RE replacement percentage (0-100)", default=65)
+    peak_target = get_float("Enter RE replacement percentage for peak hours (e.g., 0.9 for 90%)", default=0.9)
     peak_hours_input = input("Enter peak hours in 24h format, comma separated (e.g., 6,7,8,18,19,20): ")
-    peak_hours = [int(h.strip()) for h in peak_hours_input.split(",") if h.strip().isdigit()]
+    peak_hours = [int(h.strip()) for h in peak_hours_input.split(",") if h.strip().isdigit()] 
 
 
     # Get user profiles
@@ -116,7 +116,7 @@ def main():
         input_data=input_data,
         consumer_demand_path=demand_file,
         hourly_demand=hourly_demand,
-        # re_replacement=re_replacement,
+        re_replacement=re_replacement,
         OA_cost=OA_cost,
         curtailment_selling_price=curtailment_selling_price,
         sell_curtailment_percentage=sell_curtailment_percentage,

@@ -84,7 +84,7 @@ def optimization_model(input_data, consumer_demand_path=None, hourly_demand=None
                         Battery_marginalCost=Battery_marginalCost,
                         sell_curtailment_percentage=sell_curtailment_percentage,
                         curtailment_selling_price=curtailment_selling_price,
-                        # DO=re_replacement/100 if re_replacement else 0.65,
+                        DO=re_replacement/100 if re_replacement else 0.65,
                         DoD=DoD,
                         annual_curtailment_limit=annual_curtailment_limit,
                         ess_name=ess_name,

@@ -32,7 +32,7 @@ def setup_network(demand_data=None, solar_profile=None, wind_profile=None, Solar
 
 
     # Add bus to the network
-    network.add("Bus", "ElectricityBus", carrier="AC")
+    network.add("Bus", "ElectricityBus", carrier="electricity")
 
 
 
@@ -78,11 +78,13 @@ def setup_network(demand_data=None, solar_profile=None, wind_profile=None, Solar
                         # DoD=0.2,           # Minimum state of charge (1 - DoD), for DoD = 0.8
             )
 
+            #e_nom extendable true  
+
     # Add generator for unmet demand
     network.add("Generator", "Unmet_Demand",
                 bus="ElectricityBus",
                 p_nom=1e6,          # Large capacity to ensure it can cover all unmet demand if needed
                 marginal_cost=0,  # High marginal cost to use only when absolutely necessary
-                carrier="Unmet_Demand")
+                carrier="unmet_demand")
 
     return network
