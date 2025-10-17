@@ -74,12 +74,14 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
 
       # Battery SOC, Discharge, Charge
       if ess_name is not None:
+          max_hours = 10  # Default value, replace with user input if available
           battery_soc = network.storage_units_t.state_of_charge["Battery"]
           ess_discharge = network.storage_units_t.p_dispatch["Battery"]
           ess_discharge[abs(ess_discharge) < 1e-5] = 0
           ess_charge = network.storage_units_t.p_store["Battery"]
           gross_energy_allocation += (ess_discharge - ess_charge)
           ess_capacity = network.storage_units.at["Battery", "p_nom_opt"]
+          battery_cap = ess_capacity * max_hours
           ess_capital_cost = ess_capacity * network.storage_units.at["Battery", "capital_cost"]
           # ess_marginal_cost = ((((network.storage_units_t.p_dispatch["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)) + ((network.storage_units_t.p_store["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)))) * 2
           ess_marginal_cost = ((((network.storage_units_t.p_dispatch["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)) + ((network.storage_units_t.p_store["Battery"] * network.storage_units.at["Battery", "marginal_cost"]).sum(axis=0)))) 
@@ -151,6 +153,7 @@ def analyze_network_results(network=None, sell_curtailment_percentage=None, curt
           "Optimal Solar Capacity (MW)": solar_capacity,
           "Optimal Wind Capacity (MW)": wind_capacity,
           "Optimal Battery Capacity (MW)": ess_capacity,
+          "Battery total Capacity (MWh)": battery_cap,
           "Per Unit Cost (INR/MWh)": per_unit_cost,
           "Final Cost (INR)": Final_cost,
           "Total Cost (INR)": total_cost,
