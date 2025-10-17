@@ -81,7 +81,7 @@ def main():
     if solar_profiles:
         input_data['IPP1']['Solar'] = {}
         for idx, s in enumerate(solar_profiles):
-            profile_df = pd.read_excel(s['path'])
+            profile_df = pd.read_excel(s['path'], engine='openpyxl')  # Specify engine explicitly
             input_data['IPP1']['Solar'][f'Solar_{idx+1}'] = {
                 'profile': profile_df.squeeze(),
                 'max_capacity': s['max_capacity'],
@@ -91,7 +91,7 @@ def main():
     if wind_profiles:
         input_data['IPP1']['Wind'] = {}
         for idx, w in enumerate(wind_profiles):
-            profile_df = pd.read_excel(w['path'])
+            profile_df = pd.read_excel(w['path'], engine='openpyxl')  # Specify engine explicitly
             input_data['IPP1']['Wind'][f'Wind_{idx+1}'] = {
                 'profile': profile_df.squeeze(),
                 'max_capacity': w['max_capacity'],
